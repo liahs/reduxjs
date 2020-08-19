@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import VideoOngoing from './Screens/VideocallOngoing';
-
+import MyContacts from './Screens/contacts';
 import VideoCalling from './Screens/VideoCalling';
 import VideoIncoming from './Screens/VideoIncoming';
 import ChatProfile from './Screens/chatprofile';
@@ -20,14 +20,46 @@ import Home from './Screens/home';
 import LocationScreen from './Screens/LocationScreen';
 import Message from './Components/Message';
 import Filter from './mankhal/filter';
+import {NetworkInfo} from 'react-native-network-info';
+import {createAppContainer} from 'react-navigation';
+import {createStackNavigator} from 'react-navigation-stack';
+import store from './src/store';
+import {Provider} from 'react-redux';
+import AsyncStorage from '@react-native-community/async-storage';
 class App extends React.Component {
+  async componentDidMount() {
+    const ip = await AsyncStorage.getItem('ip_key');
+    if (!ip) {
+      const ipAddress = await NetworkInfo.getIPV4Address();
+      await AsyncStorage.setItem('ip_key', ipAddress);
+      await fetch(`http://192.168.43.35:3000/addUser/${ipAddress}`);
+      console.log('User Added ');
+    } else {
+      console.log(ip);
+    }
+  }
   render() {
     return (
-      <View style={{flex: 1}}>
-        <Chat />
-      </View>
+      <Provider store={store}>
+        <View style={{flex: 1}}>
+          <MainNavigator />
+        </View>
+      </Provider>
     );
   }
 }
+const Navigator = createStackNavigator(
+  {
+    Home,
+    MyContacts,
+    Chat,
+  },
+  {
+    headerMode: 'none',
+    unmountInactiveRoutes: true,
+  },
+);
+
+const MainNavigator = createAppContainer(Navigator);
 
 export default App;

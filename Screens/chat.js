@@ -1,5 +1,5 @@
-import {MenuProvider} from 'react-native-popup-menu';
-import React, {Component} from 'react';
+import { MenuProvider } from 'react-native-popup-menu';
+import React, { Component } from 'react';
 import {
   Menu,
   MenuOptions,
@@ -22,19 +22,29 @@ import {
 import MIcon from 'react-native-vector-icons/MaterialIcons';
 import Entypo from 'react-native-vector-icons/Entypo';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Fontisto from 'react-native-vector-icons/Fontisto';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-
+import AsyncStorage from '@react-native-community/async-storage';
 // import AnimateMic and SendRecord
 import SendRecord from '../Components/SendRecord';
 import AnimateMic from '../Components/animateMic'; // neccessarry
 
 // socket connection
-
 import io from 'socket.io-client';
+//react-redux
+
+function formatAMPM(date) {
+  let  hours = date.getHours();
+  let minutes = date.getMinutes();
+  let ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  minutes = minutes < 10 ? '0'+minutes : minutes;
+  let strTime = hours + ':' + minutes + ' ' + ampm;
+  return strTime;
+}
 
 export default class Chat extends Component {
   constructor(props) {
@@ -53,42 +63,56 @@ export default class Chat extends Component {
       delmodal: false,
       delId: 0,
     };
-    this.sender = 'shailen';
-    this.receiver = 'himmat';
-    this.socket = io('http://192.168.43.35:3000');
+    this.sender = '';
+    this.receiver = this.props.navigation.getParam('uid');
+    this.userReceiver = this.props.navigation.getParam('username');
+    this.socket = io('https://chatapp1011.herokuapp.com/');
+    //this.socket = io('http://192.168.43.35:5000/');
   }
   async componentDidMount() {
+    this.sender = await AsyncStorage.getItem('ip_key');
     const data = await this.loadData();
-    this.setState({datas: data, refresh: false});
+    this.setState({ datas: data, refresh: false });
     this.socket.on('msgAdded', async () => {
       const data = await this.loadData();
-      this.setState({datas: data, value: '', refresh: false, msgs: ''});
+      this.setState({ datas: data, value: '', refresh: false, msgs: '' });
     });
   }
   async loadData() {
     const res = await fetch(
-      'http://192.168.43.35:3000/showChat/' +
-        this.sender +
-        '/' +
-        this.receiver +
-        '/' +
-        this.state.n,
+      'https://chatapp1011.herokuapp.com/showChat/' +
+      this.sender +
+      '/' +
+      this.receiver +
+      '/' +
+      this.state.n,
     );
+    // const res = await fetch(
+    //   'http://192.168.43.35:5000/showChat/' +
+    //   this.sender +
+    //   '/' +
+    //   this.receiver +
+    //   '/' +
+    //   this.state.n,
+    // );
     const data = await res.json();
+    if (data.status == "NOK") {
+      return []
+    }
     return data;
   }
 
   async refreshList() {
     this.setState(state => {
-      return {n: state.n + 2};
+      return { n: state.n + 2 };
     });
     const datas = await this.loadData();
-    this.setState({datas: datas, value: '', refresh: false});
+    this.setState({ datas: datas, value: '', refresh: false });
   }
   // Add To list
   addToList() {
     if (this.state.value.length > 0) {
-      fetch('http://192.168.43.35:3000/updateChatList', {
+      fetch('https://chatapp1011.herokuapp.com/updateChatList', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,21 +123,21 @@ export default class Chat extends Component {
           receiver: this.receiver,
         }),
       }).then(res => console.log('successfully added'));
-      this.setState({msgs: 'waiting'});
+      this.setState({ msgs: 'waiting' });
       this.socket.emit('msgAdded');
     }
   }
 
   // Handle bottom textInput views between recording and simple text input
   handleTextView(txt) {
-    this.setState({record: txt});
+    this.setState({ record: txt });
   }
 
   setModalVisible = visible => {
-    this.setState({modalVisible: visible});
+    this.setState({ modalVisible: visible });
   };
   async hideMsg() {
-    const res = await fetch('http://192.168.43.35:3000/delMessage', {
+    const res = await fetch('https://chatapp1011.herokuapp.com/delMessage', {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -126,37 +150,37 @@ export default class Chat extends Component {
       }),
     });
     const datas = await res.json();
-    this.setState({datas: datas, delmodal: false});
+    this.setState({ datas: datas, delmodal: false });
   }
   handelChange(text) {
     this.setState({
       value: text,
     });
     if (text.length == 0) {
-      this.setState({sent: 'microphone'});
+      this.setState({ sent: 'microphone' });
     } else {
-      this.setState({sent: 'send'});
+      this.setState({ sent: 'send' });
     }
   }
   sendMessage() {
-    this.setState({message: this.state.value});
+    this.setState({ message: this.state.value });
   }
   Notification() {
     if (this.state.NotificationStatus == 'Mute Notifications') {
-      this.setState({NotificationStatus: 'Unmute Notifications'});
+      this.setState({ NotificationStatus: 'Unmute Notifications' });
     } else {
-      this.setState({NotificationStatus: 'Mute Notifications'});
+      this.setState({ NotificationStatus: 'Mute Notifications' });
     }
   }
-  renderItem({item}) {
-    const time = new Date(item.created_at);
+  renderItem({ item }) {
+    const time = formatAMPM(new Date(item.created_at));
     if (item.visible) {
       return (
         <>
           {item.sender == this.sender ? (
             <TouchableOpacity
               onLongPress={() =>
-                this.setState({delmodal: true, delId: item._id})
+                this.setState({ delmodal: true, delId: item._id })
               }
               style={{
                 alignItems: 'flex-end',
@@ -164,8 +188,8 @@ export default class Chat extends Component {
                 marginLeft: 50,
                 marginBottom: 15,
               }}>
-              <View style={{backgroundColor: '#05375a75', borderRadius: 10}}>
-                <Text style={{fontSize: 16, color: 'black', padding: 10}}>
+              <View style={{ backgroundColor: '#05375a75', borderRadius: 10 }}>
+                <Text style={{ fontSize: 16, color: 'black', padding: 10 }}>
                   {item.txt}
                 </Text>
                 <View
@@ -184,7 +208,7 @@ export default class Chat extends Component {
                       justifyContent: 'center',
                       fontFamily: 'Barlow-Regular',
                     }}>
-                    {time.getHours()}:{time.getMinutes()}
+                    {time}
                   </Text>
                   <FontAwesome
                     style={{
@@ -201,44 +225,44 @@ export default class Chat extends Component {
               </View>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              onLongPress={() => console.log('hello')}
-              style={{
-                alignItems: 'flex-start',
-                marginTop: 5,
-                marginRight: 80,
-                marginBottom: 8,
-                flexDirection: 'row',
-              }}>
-              <Image
-                source={require('../assets/user.png')}
-                style={{width: 50, height: 50, alignSelf: 'flex-end'}}
-              />
-              <View style={{backgroundColor: '#DCDCDC', borderRadius: 10}}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    color: '#05375a',
-                    padding: 10,
-                    elevation: 1,
-                  }}>
-                  {item.txt}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 10,
-                    color: '#05375a',
-                    marginLeft: 10,
-                    marginBottom: 5,
-                    paddingHorizontal: 10,
-                    textAlign: 'right',
-                    fontFamily: 'Barlow-Regular',
-                  }}>
-                  {time.getHours()}:{time.getMinutes()}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
+              <TouchableOpacity
+                onLongPress={() => console.log('hello')}
+                style={{
+                  alignItems: 'flex-start',
+                  marginTop: 5,
+                  marginRight: 80,
+                  marginBottom: 8,
+                  flexDirection: 'row',
+                }}>
+                <Image
+                  source={require('../assets/user.png')}
+                  style={{ width: 50, height: 50, alignSelf: 'flex-end' }}
+                />
+                <View style={{ backgroundColor: '#DCDCDC', borderRadius: 10 }}>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      color: '#05375a',
+                      padding: 10,
+                      elevation: 1,
+                    }}>
+                    {item.txt}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: '#05375a',
+                      marginLeft: 10,
+                      marginBottom: 5,
+                      paddingHorizontal: 10,
+                      textAlign: 'right',
+                      fontFamily: 'Barlow-Regular',
+                    }}>
+                    {time}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
         </>
       );
     } else {
@@ -254,7 +278,7 @@ export default class Chat extends Component {
           backdropOpacity={0}
           animationIn="fadeIn"
           animationOut="fadeOut"
-          onBackdropPress={() => this.setState({delmodal: false})}>
+          onBackdropPress={() => this.setState({ delmodal: false })}>
           <View
             style={{
               padding: 10,
@@ -272,9 +296,9 @@ export default class Chat extends Component {
               name="back"
               color="#05375a"
               size={20}
-              onPress={() => this.setState({delmodal: false})}
+              onPress={() => this.setState({ delmodal: false })}
             />
-            <TouchableOpacity style={{paddingHorizontal: 20}}>
+            <TouchableOpacity style={{ paddingHorizontal: 20 }}>
               <MIcon name="delete" size={24} onPress={() => this.hideMsg()} />
             </TouchableOpacity>
           </View>
@@ -378,7 +402,7 @@ export default class Chat extends Component {
             </View>
           </View>
         </Modal>
-        <View style={{flex: 1, backgroundColor: 'white'}}>
+        <View style={{ flex: 1, backgroundColor: 'white' }}>
           <View
             style={{
               height: Math.round(Dimensions.get('window').height) / 18,
@@ -386,7 +410,7 @@ export default class Chat extends Component {
               flexDirection: 'row',
               paddingTop: 15,
             }}>
-            <View style={{flex: 0.1, justifyContent: 'center', padding: 10}}>
+            <View style={{ flex: 0.1, justifyContent: 'center', padding: 10 }}>
               <AntDesign
                 name="back"
                 color="#05375a"
@@ -411,7 +435,7 @@ export default class Chat extends Component {
                 onPress={() => {
                   this.props.navigation.navigate('Chatprofile');
                 }}>
-                Himmat
+                {this.userReceiver}
               </Text>
             </View>
             <View
@@ -439,7 +463,7 @@ export default class Chat extends Component {
                 alignItems: 'flex-end',
                 padding: 7,
               }}>
-              <Menu style={{backgroundColor: 'white'}}>
+              <Menu style={{ backgroundColor: 'white' }}>
                 <MenuTrigger>
                   <Entypo
                     name="dots-three-vertical"
@@ -457,34 +481,34 @@ export default class Chat extends Component {
                       borderBottomEndRadius: 15,
                     },
                   }}>
-                  <View style={{borderRadius: 20}}>
+                  <View style={{ borderRadius: 20 }}>
                     <MenuOption onSelect={() => alert(`Save`)}>
-                      <Text style={{color: 'black', fontWeight: 'bold'}}>
+                      <Text style={{ color: 'black', fontWeight: 'bold' }}>
                         View Profile
                       </Text>
                     </MenuOption>
                     <MenuOption onSelect={() => alert(`Save`)}>
-                      <Text style={{color: 'black', fontWeight: 'bold'}}>
+                      <Text style={{ color: 'black', fontWeight: 'bold' }}>
                         Search
                       </Text>
                     </MenuOption>
                     <MenuOption onSelect={() => alert(`Save`)}>
-                      <Text style={{color: 'black', fontWeight: 'bold'}}>
+                      <Text style={{ color: 'black', fontWeight: 'bold' }}>
                         Report
                       </Text>
                     </MenuOption>
                     <MenuOption onSelect={() => alert(`Save`)}>
-                      <Text style={{color: 'black', fontWeight: 'bold'}}>
+                      <Text style={{ color: 'black', fontWeight: 'bold' }}>
                         Block
                       </Text>
                     </MenuOption>
                     <MenuOption onSelect={() => this.Notification()}>
-                      <Text style={{color: 'black', fontWeight: 'bold'}}>
+                      <Text style={{ color: 'black', fontWeight: 'bold' }}>
                         {this.state.NotificationStatus}
                       </Text>
                     </MenuOption>
                     <MenuOption onSelect={() => alert(`Save`)}>
-                      <Text style={{color: 'black', fontWeight: 'bold'}}>
+                      <Text style={{ color: 'black', fontWeight: 'bold' }}>
                         Clear Chat
                       </Text>
                     </MenuOption>
@@ -493,7 +517,7 @@ export default class Chat extends Component {
               </Menu>
             </View>
           </View>
-          <View style={{flex: 1}}>
+          <View style={{ flex: 1 }}>
             <View
               style={{
                 flex: 1,
@@ -511,7 +535,7 @@ export default class Chat extends Component {
                 onRefresh={() => this.refreshList()}
                 refreshing={this.state.refresh}
                 onLayout={() =>
-                  this.refs.flatList.scrollToEnd({animated: true})
+                  this.refs.flatList.scrollToEnd({ animated: true })
                 }
               />
               {/* */}
@@ -538,13 +562,13 @@ export default class Chat extends Component {
                 {this.state.record == 'initial' ? (
                   <Fontisto name="smiley" size={20} />
                 ) : (
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <MIcon name="delete" size={20} />
-                    <Text style={{color: 'red', fontSize: 16, paddingLeft: 20}}>
-                      00:12
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MIcon name="delete" size={20} />
+                      <Text style={{ color: 'red', fontSize: 16, paddingLeft: 20 }}>
+                        00:12
                     </Text>
-                  </View>
-                )}
+                    </View>
+                  )}
               </View>
               <View
                 style={{
@@ -581,32 +605,32 @@ export default class Chat extends Component {
                     ]}
                   />
                 ) : (
-                  <View
-                    style={{
-                      flex: 1,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingTop: 5,
-                    }}>
-                    <MIcon name="keyboard-arrow-left" />
-                    <MIcon name="keyboard-arrow-left" />
-                    <Text style={{fontSize: 16, color: 'grey', paddingLeft: 5}}>
-                      Slide to cancel
+                    <View
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingTop: 5,
+                      }}>
+                      <MIcon name="keyboard-arrow-left" />
+                      <MIcon name="keyboard-arrow-left" />
+                      <Text style={{ fontSize: 16, color: 'grey', paddingLeft: 5 }}>
+                        Slide to cancel
                     </Text>
-                  </View>
-                )}
+                    </View>
+                  )}
                 {this.state.sent === 'send' ? (
                   <FontAwesome
                     name={this.state.sent}
                     size={20}
-                    style={{paddingHorizontal: 15, paddingVertical: 10}}
+                    style={{ paddingHorizontal: 15, paddingVertical: 10 }}
                     onPress={() => this.addToList()}
                   />
                 ) : (
-                  <AnimateMic
-                    handleTextView={txt => this.handleTextView(txt)}
-                  />
-                )}
+                    <AnimateMic
+                      handleTextView={txt => this.handleTextView(txt)}
+                    />
+                  )}
               </View>
               {this.state.record === 'initial' ? (
                 <>
@@ -635,29 +659,29 @@ export default class Chat extends Component {
                   </TouchableOpacity>
                 </>
               ) : (
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    paddingRight: 20,
-                  }}>
-                  <MIcon name="keyboard-arrow-right" />
-                  <MIcon name="keyboard-arrow-right" />
-                  <MIcon name="keyboard-arrow-right" />
-                  <MIcon name="keyboard-arrow-right" />
-                  <MIcon name="keyboard-arrow-right" />
-                  <MIcon name="lock" size={20} />
-                </View>
-              )}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'flex-end',
+                      alignItems: 'center',
+                      paddingRight: 20,
+                    }}>
+                    <MIcon name="keyboard-arrow-right" />
+                    <MIcon name="keyboard-arrow-right" />
+                    <MIcon name="keyboard-arrow-right" />
+                    <MIcon name="keyboard-arrow-right" />
+                    <MIcon name="keyboard-arrow-right" />
+                    <MIcon name="lock" size={20} />
+                  </View>
+                )}
             </View>
           ) : (
-            <SendRecord
-              handleTextView={txt => {
-                this.handleTextView(txt);
-              }}
-            />
-          )}
+              <SendRecord
+                handleTextView={txt => {
+                  this.handleTextView(txt);
+                }}
+              />
+            )}
           {/* from top comment upto here needed */}
         </View>
       </MenuProvider>
