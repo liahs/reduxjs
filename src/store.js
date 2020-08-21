@@ -1,7 +1,7 @@
-import {configureStore, getDefaultMiddleware} from '@reduxjs/toolkit';
-
+import {configureStore} from '@reduxjs/toolkit';
 import chatReducer from './features/chatSlice';
 import userReducer from './features/userSlice';
+
 
 const store = configureStore({
   reducer: {
@@ -14,4 +14,5 @@ store.subscribe(() => {
   count += 1;
   console.log(count);
 });
+
 export default store;

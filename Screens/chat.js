@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 
 import MIcon from 'react-native-vector-icons/MaterialIcons';
@@ -30,23 +31,51 @@ import AsyncStorage from '@react-native-community/async-storage';
 // import AnimateMic and SendRecord
 import SendRecord from '../Components/SendRecord';
 import AnimateMic from '../Components/animateMic'; // neccessarry
-
-// socket connection
-import io from 'socket.io-client';
-//react-redux
+//connect from react-redux
+import { connect } from 'react-redux'
+import { nanoid } from '@reduxjs/toolkit'
+//load conversation action creater for loading conversation
+import { loadConversation ,addMessageToConversation,updateChats,changingLoaderC} from '../src/features/chatSlice'
 
 function formatAMPM(date) {
-  let  hours = date.getHours();
+  let hours = date.getHours();
   let minutes = date.getMinutes();
   let ampm = hours >= 12 ? 'pm' : 'am';
   hours = hours % 12;
   hours = hours ? hours : 12; // the hour '0' should be '12'
-  minutes = minutes < 10 ? '0'+minutes : minutes;
+  minutes = minutes < 10 ? '0' + minutes : minutes;
   let strTime = hours + ':' + minutes + ' ' + ampm;
   return strTime;
 }
 
-export default class Chat extends Component {
+// react-redux coding
+
+const mapStateToProps = state => {
+  return {
+    conversation: state.chats.conversation,
+    loaderC:state.chats.loaderC
+    
+  }
+}
+
+const mapDispatchToProps = dispatch => {
+  return {
+    loadConversation: (p1, p2,n) => {
+      dispatch(loadConversation({ p1, p2,n}))
+    },
+    addMessageToConversation:(x)=>{
+      dispatch(addMessageToConversation(x))
+    },
+    updateChats:(sender,message,receiver)=>{
+      dispatch(updateChats(sender,message,receiver))
+    },
+    changingLoaderC(){
+      dispatch(changingLoaderC())
+    }
+  }
+}
+
+class Chat extends Component {
   constructor(props) {
     super(props);
     this.state = {
@@ -56,88 +85,56 @@ export default class Chat extends Component {
       NotificationStatus: 'Mute Notifications',
       record: 'initial', //needed state  for handling recording view and textinput view
       modalVisible: false,
-      datas: [],
       refresh: true,
       n: 10,
-      msgs: 'waiting',
+      msgs: '',
       delmodal: false,
       delId: 0,
+      scroll:true,
     };
     this.sender = '';
     this.receiver = this.props.navigation.getParam('uid');
     this.userReceiver = this.props.navigation.getParam('username');
-    this.socket = io('https://chatapp1011.herokuapp.com/');
-    //this.socket = io('http://192.168.43.35:5000/');
+    // this.socket = io('https://chatapp1011.herokuapp.com/');
   }
+
   async componentDidMount() {
     this.sender = await AsyncStorage.getItem('ip_key');
-    const data = await this.loadData();
-    this.setState({ datas: data, refresh: false });
-    this.socket.on('msgAdded', async () => {
-      const data = await this.loadData();
-      this.setState({ datas: data, value: '', refresh: false, msgs: '' });
-    });
+    await this.props.loadConversation(this.sender, this.receiver,this.state.n)
+    this.setState({refresh:false})
   }
-  async loadData() {
-    const res = await fetch(
-      'https://chatapp1011.herokuapp.com/showChat/' +
-      this.sender +
-      '/' +
-      this.receiver +
-      '/' +
-      this.state.n,
-    );
-    // const res = await fetch(
-    //   'http://192.168.43.35:5000/showChat/' +
-    //   this.sender +
-    //   '/' +
-    //   this.receiver +
-    //   '/' +
-    //   this.state.n,
-    // );
-    const data = await res.json();
-    if (data.status == "NOK") {
-      return []
-    }
-    return data;
+  componentWillUnmount(){
+    this.props.changingLoaderC()
   }
-
   async refreshList() {
     this.setState(state => {
-      return { n: state.n + 2 };
-    });
-    const datas = await this.loadData();
-    this.setState({ datas: datas, value: '', refresh: false });
-  }
+      return { n: state.n + 2,refresh:false };
+    })
+    this.props.loadConversation(this.sender, this.receiver,this.state.n)
+  };
+  
   // Add To list
   addToList() {
-    if (this.state.value.length > 0) {
-      fetch('https://chatapp1011.herokuapp.com/updateChatList', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: this.sender,
-          message: this.state.value,
-          receiver: this.receiver,
-        }),
-      }).then(res => console.log('successfully added'));
-      this.setState({ msgs: 'waiting' });
-      this.socket.emit('msgAdded');
-    }
+    if(this.state.value.length>0)
+     {this.props.addMessageToConversation({visible:true,_id:nanoid(),sender:this.sender,txt:this.state.value,created_at:Date.now()})
+     const message=this.state.value 
+     this.setState({value:'',msgs:'waiting'})
+     this.props.updateChats(this.sender,message,this.receiver)
+     this.setState({msgs:'envelope'})
   }
-
+  }
   // Handle bottom textInput views between recording and simple text input
   handleTextView(txt) {
     this.setState({ record: txt });
   }
 
+
   setModalVisible = visible => {
     this.setState({ modalVisible: visible });
   };
+  
   async hideMsg() {
-    const res = await fetch('https://chatapp1011.herokuapp.com/delMessage', {
+    const res = await fetch('http://192.168.43.35:5000/delMessage', {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -152,6 +149,7 @@ export default class Chat extends Component {
     const datas = await res.json();
     this.setState({ datas: datas, delmodal: false });
   }
+
   handelChange(text) {
     this.setState({
       value: text,
@@ -176,7 +174,7 @@ export default class Chat extends Component {
     const time = formatAMPM(new Date(item.created_at));
     if (item.visible) {
       return (
-        <>
+        <View>
           {item.sender == this.sender ? (
             <TouchableOpacity
               onLongPress={() =>
@@ -263,10 +261,10 @@ export default class Chat extends Component {
                 </View>
               </TouchableOpacity>
             )}
-        </>
+        </View>
       );
     } else {
-      return null;
+      return <View></View>;
     }
   }
   render() {
@@ -415,7 +413,7 @@ export default class Chat extends Component {
                 name="back"
                 color="#05375a"
                 size={20}
-                onPress={() => this.props.navigation.navigate('Home')}
+                onPress={() => this.props.navigation.pop()}
               />
             </View>
             <View
@@ -526,18 +524,29 @@ export default class Chat extends Component {
                 paddingBottom: 20,
                 marginBottom: 10,
               }}>
-              <FlatList
+              {this.props.loaderC=='pending'?<FlatList
                 style={styles.container}
                 ref="flatList"
-                data={this.state.datas}
+                data={this.props.conversation}
                 renderItem={x => this.renderItem(x)}
                 keyExtractor={item => item._id}
                 onRefresh={() => this.refreshList()}
                 refreshing={this.state.refresh}
-                onLayout={() =>
-                  this.refs.flatList.scrollToEnd({ animated: true })
+                onContentSizeChange={() => 
+                  {
+                  if(this.state.scroll){
+                    this.refs.flatList.scrollToEnd({animated: true})
+                    this.setState({scroll:false})
                 }
-              />
+                  }
+                }
+                onLayout={() =>{
+                  this.refs.flatList.scrollToEnd({ animated: true })
+                  this.setState({scroll:true})
+                }
+                }
+                removeClippedSubviews={true}
+              />: <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><ActivityIndicator color="#0004" size="large"/></View>}
               {/* */}
             </View>
           </View>
@@ -688,6 +697,11 @@ export default class Chat extends Component {
     );
   }
 }
+
+
+
+const ChatScreenContainer = connect(mapStateToProps, mapDispatchToProps)(Chat)
+export default ChatScreenContainer
 const styles = StyleSheet.create({
   container: {
     flex: 1,

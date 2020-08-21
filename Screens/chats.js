@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
 import { View, ActivityIndicator,Text, TouchableOpacity, FlatList, StatusBar, Image } from 'react-native';
 import { connect } from 'react-redux'
-import { fetchChats } from '../src/features/chatSlice';
+import { fetchChats} from '../src/features/chatSlice';
 import AsyncStorage from '@react-native-community/async-storage';
-
-import { fetchUsers, loadUsers } from '../src/features/userSlice';
+import io from 'socket.io-client';
+// import { withSocketContext } from '../src/createSocketContext';
+import { fetchUsers} from '../src/features/userSlice';
 
 const mapStateToProps = state => {
   return {
@@ -14,8 +15,8 @@ const mapStateToProps = state => {
 };
 const mapDispatchToProps = dispatch => {
   return {
-    fetchChatList: p => {
-      dispatch(fetchChats(p));
+    fetchChats: (p1,p2) => {
+      dispatch(fetchChats(p1,p2));
     },
     fetchUsers: function () {
       dispatch(fetchUsers());
@@ -46,10 +47,18 @@ class Chats extends Component {
   async componentDidMount() {
     this.ip = await AsyncStorage.getItem('ip_key')
     this.props.fetchUsers()
-    this.props.fetchChatList(this.ip)
+    this.props.fetchChats(this.ip)
     this.setState({ loading: false })
-    // console.log("Chats",this.props.chats)
-    // console.log("Users",this.props.users)
+    const socket=io('http://192.168.43.35:5000')
+    // console.log(socket)
+    socket.emit('new',{name:this.ip})
+      socket.on('msgAdded',(data)=>{
+           if(data.ip==this.ip){
+           this.props.fetchChats(this.ip,data.sender)
+           }
+        }
+        )
+ 
   }
   render() {
     if (this.state.loading || this.props.users.length<=0) {
@@ -71,7 +80,8 @@ class Chats extends Component {
               const lastconverstation = item.conversation[item.conversation.length - 1]
               const lmessage = lastconverstation.txt
               const time = formatAMPM(new Date(lastconverstation.created_at))
-              // console.log(lmessage)
+              const notification=item.conversation.filter(x=>(x.sender==p2||x.seen)).length
+              console.log(notification)
               return (<TouchableOpacity onPress={() => this.props.navigation.navigate('Chat', {
                 uid: p2,
                 username: username
@@ -96,7 +106,7 @@ class Chats extends Component {
                   </View>
                   <View style={{ flex: 1.3, justifyContent: 'flex-start' }}>
                     <View style={{ width: 20, height: 20, backgroundColor: '#FF5733', borderRadius: 10, alignSelf: 'flex-start', marginLeft: 39, paddingTop: 0, marginTop: 1, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ justifyContent: 'center', color: 'white', textAlign: 'center', fontSize: 11 }}>{item.key}</Text>
+                      <Text style={{ justifyContent: 'center', color: 'white', textAlign: 'center', fontSize: 11 }}>{notification}</Text>
                     </View>
                   </View>
                 </View>
