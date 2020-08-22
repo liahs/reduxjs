@@ -6,7 +6,7 @@ const initialState = {
   conversation: [],
   loading: 'idle',
   loaderC:'idle',
-  
+  socketCon:'no'
 };
 const chatSlice = createSlice({
   name: 'chats',
@@ -34,11 +34,14 @@ const chatSlice = createSlice({
     },
     changingLoaderC(state,action){
       state.loaderC='idle'
+    },
+    connectSocket(state,action){
+      state.socketCon='yes'
     }
   },
 });
 
-export const {changingLoaderC,chatloading, loadChatList, loadConversation, addMessageToConversation } = chatSlice.actions;
+export const {connectSocket,changingLoaderC,chatloading, loadChatList, loadConversation, addMessageToConversation } = chatSlice.actions;
 
 export const fetchChats = (uid,p=null) => async dispatch => {
   // const res = await fetch("https://chatapp1011.herokuapp.com/showAllChat/"+uid);

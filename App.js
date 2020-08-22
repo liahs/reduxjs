@@ -28,8 +28,6 @@ import store from './src/store';
 //react-redux
 import {Provider} from 'react-redux';
 import AsyncStorage from '@react-native-community/async-storage';
-// import io from 'socket.io-client'
-// import {SocketProvider} from './src/createSocketContext'
 
 class App extends React.Component {
   

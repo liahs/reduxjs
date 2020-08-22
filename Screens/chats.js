@@ -1,16 +1,16 @@
 import React, { Component } from 'react';
 import { View, ActivityIndicator,Text, TouchableOpacity, FlatList, StatusBar, Image } from 'react-native';
 import { connect } from 'react-redux'
-import { fetchChats} from '../src/features/chatSlice';
+import { fetchChats,connectSocket} from '../src/features/chatSlice';
 import AsyncStorage from '@react-native-community/async-storage';
 import io from 'socket.io-client';
-// import { withSocketContext } from '../src/createSocketContext';
 import { fetchUsers} from '../src/features/userSlice';
 
 const mapStateToProps = state => {
   return {
     chats: state.chats.chatlist,
-    users: state.users.users
+    users: state.users.users,
+    socketCon:state.chats.socketCon
   };
 };
 const mapDispatchToProps = dispatch => {
@@ -21,6 +21,9 @@ const mapDispatchToProps = dispatch => {
     fetchUsers: function () {
       dispatch(fetchUsers());
     },
+    connectSocket:function(){
+      dispatch(connectSocket())
+    }
   };
 };
 
@@ -49,16 +52,17 @@ class Chats extends Component {
     this.props.fetchUsers()
     this.props.fetchChats(this.ip)
     this.setState({ loading: false })
-    const socket=io('http://192.168.43.35:5000')
-    // console.log(socket)
-    socket.emit('new',{name:this.ip})
+    if(this.props.socketCon==='no'){
+      const socket=io('http://192.168.43.35:5000')
+      socket.emit('new',{name:this.ip})
       socket.on('msgAdded',(data)=>{
            if(data.ip==this.ip){
            this.props.fetchChats(this.ip,data.sender)
            }
         }
         )
- 
+        this.props.connectSocket()
+      }
   }
   render() {
     if (this.state.loading || this.props.users.length<=0) {

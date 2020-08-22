@@ -95,7 +95,6 @@ class Chat extends Component {
     this.sender = '';
     this.receiver = this.props.navigation.getParam('uid');
     this.userReceiver = this.props.navigation.getParam('username');
-    // this.socket = io('https://chatapp1011.herokuapp.com/');
   }
 
   async componentDidMount() {
